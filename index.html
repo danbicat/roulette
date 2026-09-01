@@ -42,35 +42,89 @@
     window.roulette.setMarbles(names);
     ready = names.length > 0;
     localStorage.setItem('mbr_names', names.join(','));
-    switch (winnerType) {
-      case 'first':
-        setWinnerRank(1);
-        break;
-      case 'last':
-        const total = window.roulette.getCount();
-        setWinnerRank(total);
-        break;
+    updateWinnerUI();
+  }
+
+  function updateWinnerUI() {
+    const total = window.roulette ? window.roulette.getCount() : 0;
+    const rankInput = document.querySelector('#in_winningRank');
+    let rankVal = parseInt(rankInput.value, 10);
+    if (isNaN(rankVal) || rankVal < 1) {
+      rankVal = 1;
+    }
+
+    const btnFirst = document.querySelector('.btn-first-winner');
+    const btnLast = document.querySelector('.btn-last-winner');
+    const btnFirstToN = document.querySelector('.btn-first-to-n-winner');
+    const btnNToLast = document.querySelector('.btn-n-to-last-winner');
+
+    if (btnFirst) btnFirst.classList.toggle('active', winnerType === 'first');
+    if (btnLast) btnLast.classList.toggle('active', winnerType === 'last');
+    if (btnFirstToN) btnFirstToN.classList.toggle('active', winnerType === 'firstToN');
+    if (btnNToLast) btnNToLast.classList.toggle('active', winnerType === 'nToLast');
+
+    const showInput = winnerType === 'firstToN' || winnerType === 'nToLast' || winnerType === 'custom';
+    rankInput.classList.toggle('active', showInput);
+
+    let start = 0;
+    let end = 0;
+
+    if (winnerType === 'first') {
+      start = 0;
+      end = 0;
+      rankInput.value = 1;
+    } else if (winnerType === 'last') {
+      start = Math.max(0, total - 1);
+      end = Math.max(0, total - 1);
+      rankInput.value = total || 1;
+    } else if (winnerType === 'firstToN') {
+      const n = Math.max(1, Math.min(total || 1, rankVal));
+      rankInput.value = n;
+      start = 0;
+      end = n - 1;
+    } else if (winnerType === 'nToLast') {
+      const n = Math.max(1, Math.min(total || 1, rankVal));
+      rankInput.value = n;
+      start = n - 1;
+      end = Math.max(0, total - 1);
+    } else if (winnerType === 'custom') {
+      const n = Math.max(1, Math.min(total || 1, rankVal));
+      rankInput.value = n;
+      start = n - 1;
+      end = n - 1;
+    }
+
+    if (window.options) {
+      window.options.winnerType = winnerType;
+      window.options.winnerRankStart = start;
+      window.options.winnerRankEnd = end;
+      window.options.winningRank = end;
+    }
+    if (window.roulette && window.roulette.setWinningCondition) {
+      window.roulette.setWinningCondition(winnerType, start, end);
+    }
+
+    const infoElem = document.querySelector('#winnerInfo');
+    if (infoElem) {
+      const count = Math.max(0, end - start + 1);
+      const isKo = document.documentElement.lang === 'ko';
+      if (winnerType === 'first') {
+        infoElem.textContent = isKo ? '(1등)' : '(#1)';
+      } else if (winnerType === 'last') {
+        infoElem.textContent = isKo ? `(${total}등 / 꼴등)` : `(#${total} / Last)`;
+      } else if (winnerType === 'firstToN') {
+        infoElem.textContent = isKo ? `(1 ~ ${end + 1}등 / ${count}명)` : `(#1 ~ #${end + 1} / ${count})`;
+      } else if (winnerType === 'nToLast') {
+        infoElem.textContent = isKo ? `(${start + 1} ~ ${total}등 / ${count}명)` : `(#${start + 1} ~ #${total} / ${count})`;
+      } else {
+        infoElem.textContent = isKo ? `(${start + 1}등)` : `(#${start + 1})`;
+      }
     }
   }
 
   function setWinnerRank(rank) {
     document.querySelector('#in_winningRank').value = rank;
-    window.options.winningRank = rank - 1;
-    window.roulette.setWinningRank(window.options.winningRank);
-
-    if (winnerType === 'first') {
-      document.querySelector('.btn-first-winner').classList.toggle('active', true);
-      document.querySelector('.btn-last-winner').classList.toggle('active', false);
-      document.querySelector('#in_winningRank').classList.toggle('active', false);
-    } else if (winnerType === 'last') {
-      document.querySelector('.btn-first-winner').classList.toggle('active', false);
-      document.querySelector('.btn-last-winner').classList.toggle('active', true);
-      document.querySelector('#in_winningRank').classList.toggle('active', false);
-    } else if (winnerType === 'custom') {
-      document.querySelector('.btn-first-winner').classList.toggle('active', false);
-      document.querySelector('.btn-last-winner').classList.toggle('active', false);
-      document.querySelector('#in_winningRank').classList.toggle('active', true);
-    }
+    updateWinnerUI();
   }
 
   let ready = false;
@@ -158,20 +212,41 @@
       document.documentElement.classList.toggle('light', !window.options.darkMode);
     });
 
-    document.querySelector('#in_winningRank').addEventListener('change', (e) => {
-      const v = parseInt(e.target.value, 10);
-      winnerType = 'custom';
-      setWinnerRank(isNaN(v) ? 0 : v);
+    document.querySelector('#in_winningRank').addEventListener('input', () => {
+      updateWinnerUI();
+    });
+
+    document.querySelector('#in_winningRank').addEventListener('change', () => {
+      updateWinnerUI();
     });
 
     document.querySelector('.btn-last-winner').addEventListener('click', () => {
-      const total = window.roulette.getCount();
       winnerType = 'last';
-      setWinnerRank(total);
+      updateWinnerUI();
     });
     document.querySelector('.btn-first-winner').addEventListener('click', () => {
       winnerType = 'first';
-      setWinnerRank(1);
+      updateWinnerUI();
+    });
+    document.querySelector('.btn-first-to-n-winner').addEventListener('click', () => {
+      const total = window.roulette ? window.roulette.getCount() : 0;
+      winnerType = 'firstToN';
+      const rankInput = document.querySelector('#in_winningRank');
+      const cur = parseInt(rankInput.value, 10);
+      if (isNaN(cur) || cur <= 1 || cur >= total) {
+        rankInput.value = Math.min(3, Math.max(1, total));
+      }
+      updateWinnerUI();
+    });
+    document.querySelector('.btn-n-to-last-winner').addEventListener('click', () => {
+      const total = window.roulette ? window.roulette.getCount() : 0;
+      winnerType = 'nToLast';
+      const rankInput = document.querySelector('#in_winningRank');
+      const cur = parseInt(rankInput.value, 10);
+      if (isNaN(cur) || cur <= 1 || cur >= total) {
+        rankInput.value = Math.max(1, total - 2);
+      }
+      updateWinnerUI();
     });
 
     window.roulette.addEventListener('goal', () => {
@@ -257,15 +332,18 @@
           <input type="checkbox" id="chkSkill" checked />
         </div>
       </div>
-      <div class="row">
+      <div class="row row-winner">
         <label>
           <i class="icon trophy"></i>
           <span data-trans>The winner is</span>
         </label>
         <div class="btn-group">
-          <button class="btn-winner btn-first-winner active" data-trans>First</button>
-          <button class="btn-winner btn-last-winner" data-trans>Last</button>
+          <button type="button" class="btn-winner btn-first-winner active" data-trans>First</button>
+          <button type="button" class="btn-winner btn-last-winner" data-trans>Last</button>
+          <button type="button" class="btn-winner btn-first-to-n-winner" data-trans>First to Nth</button>
+          <button type="button" class="btn-winner btn-n-to-last-winner" data-trans>Nth to Last</button>
           <input type="number" id="in_winningRank" value="1" min="1" />
+          <span class="winner-info" id="winnerInfo"></span>
         </div>
       </div>
       <div class="row row-theme">

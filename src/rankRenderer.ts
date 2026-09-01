@@ -14,6 +14,9 @@ export class RankRenderer implements UIObject {
   private winners: Marble[] = [];
   private marbles: Marble[] = [];
   private winnerRank: number = -1;
+  private winnerRankStart: number = -1;
+  private winnerRankEnd: number = -1;
+  private isEnded: boolean = false;
   private messageHandler?: (msg: string) => void;
 
   @bound
@@ -34,7 +37,8 @@ export class RankRenderer implements UIObject {
         tsv.push(
           ...[...this.winners, ...this.marbles].map((m) => {
             rank++;
-            return [rank.toString(), m.name, rank - 1 === this.winnerRank ? '☆' : ''].join('\t');
+            const isWinner = rank - 1 >= this.winnerRankStart && rank - 1 <= this.winnerRankEnd;
+            return [rank.toString(), m.name, isWinner ? '☆' : ''].join('\t');
           })
         );
 
@@ -55,7 +59,7 @@ export class RankRenderer implements UIObject {
 
   render(
     ctx: CanvasRenderingContext2D,
-    { winners, marbles, winnerRank, theme }: RenderParameters,
+    { winners, marbles, winnerRank, winnerRankStart, winnerRankEnd, winner, winningMarbles, theme }: RenderParameters,
     width: number,
     height: number
   ) {
@@ -67,6 +71,9 @@ export class RankRenderer implements UIObject {
     this.winners = winners;
     this.marbles = marbles;
     this.winnerRank = winnerRank;
+    this.winnerRankStart = winnerRankStart ?? winnerRank;
+    this.winnerRankEnd = winnerRankEnd ?? winnerRank;
+    this.isEnded = !!(winner || (winningMarbles && winningMarbles.length > 0));
 
     ctx.save();
     ctx.textAlign = 'right';
@@ -87,18 +94,21 @@ export class RankRenderer implements UIObject {
     winners.forEach((marble: { hue: number; name: string }, rank: number) => {
       const y = rank * this.fontHeight;
       if (y >= startY && y <= startY + ctx.canvas.height) {
+        const isWinner = rank >= this.winnerRankStart && rank <= this.winnerRankEnd;
         ctx.fillStyle = `hsl(${marble.hue} 100% ${theme.marbleLightness}`;
-        ctx.strokeText(`${rank === winnerRank ? '☆' : '\u2714'} ${marble.name} #${rank + 1}`, startX, 20 + y);
-        ctx.fillText(`${rank === winnerRank ? '☆' : '\u2714'} ${marble.name} #${rank + 1}`, startX, 20 + y);
+        ctx.strokeText(`${isWinner ? '☆' : '\u2714'} ${marble.name} #${rank + 1}`, startX, 20 + y);
+        ctx.fillText(`${isWinner ? '☆' : '\u2714'} ${marble.name} #${rank + 1}`, startX, 20 + y);
       }
     });
     ctx.font = '10pt sans-serif';
     marbles.forEach((marble: { hue: number; name: string }, rank: number) => {
       const y = (rank + winners.length) * this.fontHeight;
       if (y >= startY && y <= startY + ctx.canvas.height) {
+        const totalRank = rank + winners.length;
+        const isWinner = this.isEnded && totalRank >= this.winnerRankStart && totalRank <= this.winnerRankEnd;
         ctx.fillStyle = `hsl(${marble.hue} 100% ${theme.marbleLightness}`;
-        ctx.strokeText(`${marble.name} #${rank + 1 + winners.length}`, startX, 20 + y);
-        ctx.fillText(`${marble.name} #${rank + 1 + winners.length}`, startX, 20 + y);
+        ctx.strokeText(`${isWinner ? '☆ ' : ''}${marble.name} #${totalRank + 1}`, startX, 20 + y);
+        ctx.fillText(`${isWinner ? '☆ ' : ''}${marble.name} #${totalRank + 1}`, startX, 20 + y);
       }
     });
     ctx.restore();

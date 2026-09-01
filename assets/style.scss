@@ -180,7 +180,9 @@ div.copyright a {
     div.row {
       display: flex;
       align-items: center;
-      height: 35px;
+      min-height: 35px;
+      height: auto;
+      margin-bottom: 2px;
 
       label {
         width: 150px;
@@ -249,40 +251,44 @@ div.copyright a {
   }
 
   .btn-group {
-    height: 25px;
+    min-height: 25px;
+    height: auto;
     display: flex;
+    flex-wrap: wrap;
     flex-grow: 1;
     align-items: center;
     border-radius: 5px;
     background: #999;
     padding: 2px;
+    gap: 2px;
 
     input[type=number] {
-      width: 30px;
+      width: 36px;
       display: none;
       border: none;
       border-radius: 3px;
       background: #ccc;
       height: 21px;
-      padding: 0;
+      padding: 0 2px;
       margin: 0;
       text-align: center;
       font-size: 11px;
 
       &.active {
-        display: block;
+        display: inline-block;
       }
     }
 
     .btn-winner {
       background: none;
       color: #333;
-      padding: 2px 5px;
+      padding: 2px 6px;
       border-radius: 3px;
       font-size: 11px;
       border: none;
       height: 21px;
-      margin-right: 2px;
+      white-space: nowrap;
+      cursor: pointer;
 
       &:hover {
         background: rgba(255, 255, 255, 0.2);
@@ -292,6 +298,14 @@ div.copyright a {
         background: #222;
         color: #fefefe;
       }
+    }
+
+    .winner-info {
+      font-size: 11px;
+      color: #222;
+      font-weight: bold;
+      padding: 0 4px;
+      white-space: nowrap;
     }
   }
 }
@@ -349,7 +363,7 @@ div.toast {
 
     .collapsible-rows {
       overflow: hidden;
-      max-height: 200px;
+      max-height: 350px;
       transition: max-height 0.3s ease-out;
 
       &.collapsed {
