@@ -18,6 +18,7 @@ import type { UIObject } from './UIObject';
 import { bound } from './utils/bound.decorator';
 import { parseName, shuffle } from './utils/utils';
 import { VideoRecorder } from './utils/videoRecorder';
+import { WinnerRenderer } from './winnerRenderer';
 
 export class Roulette extends EventTarget {
   private _marbles: Marble[] = [];
@@ -46,6 +47,7 @@ export class Roulette extends EventTarget {
   private _isRunning: boolean = false;
   private _winner: Marble | null = null;
   private _winningMarbles: Marble[] = [];
+  private _winnerRenderer = new WinnerRenderer();
 
   private _uiObjects: UIObject[] = [];
 
@@ -87,9 +89,6 @@ export class Roulette extends EventTarget {
 
   private addUiObject(obj: UIObject) {
     this._uiObjects.push(obj);
-    if (obj.onWheel) {
-      this._renderer.canvas.addEventListener('wheel', obj.onWheel);
-    }
     if (obj.onMessage) {
       obj.onMessage((msg) => {
         console.log('onMessage', msg);
@@ -239,6 +238,7 @@ export class Roulette extends EventTarget {
       winnerRankEnd: this._winnerRankEnd,
       winner: this._winner,
       winningMarbles: this._winningMarbles,
+      getMarbleImage: (name: string) => this._renderer.getMarbleImage(name),
       size: { x: this._renderer.width, y: this._renderer.height },
       theme: this._theme,
     };
@@ -265,8 +265,39 @@ export class Roulette extends EventTarget {
     this.addUiObject(minimap);
     this.fastForwarder = this.createFastForwader();
     this.addUiObject(this.fastForwarder);
+    this.addUiObject(this._winnerRenderer);
     this._stage = stages[0];
     this._loadMap();
+  }
+
+  @bound
+  private wheelHandler(e: WheelEvent) {
+    const sizeFactor = this._renderer.sizeFactor;
+    const pos = { x: e.offsetX * sizeFactor, y: e.offsetY * sizeFactor };
+
+    for (let i = this._uiObjects.length - 1; i >= 0; i--) {
+      const obj = this._uiObjects[i];
+      if (!obj.onWheel) continue;
+      const bounds = obj.getBoundingBox();
+      if (
+        bounds &&
+        pos.x >= bounds.x &&
+        pos.y >= bounds.y &&
+        pos.x <= bounds.x + bounds.w &&
+        pos.y <= bounds.y + bounds.h
+      ) {
+        obj.onWheel(e);
+        return;
+      }
+    }
+
+    for (let i = this._uiObjects.length - 1; i >= 0; i--) {
+      const obj = this._uiObjects[i];
+      if (obj.onWheel && !obj.getBoundingBox()) {
+        obj.onWheel(e);
+        return;
+      }
+    }
   }
 
   @bound
@@ -312,6 +343,7 @@ export class Roulette extends EventTarget {
       // @ts-expect-error
       canvas.addEventListener(ev.toLowerCase().replace('mouse', 'pointer'), this.mouseHandler.bind(this, ev));
     });
+    canvas.addEventListener('wheel', this.wheelHandler, { passive: false });
     canvas.addEventListener('contextmenu', (e) => {
       e.preventDefault();
     });
@@ -332,6 +364,7 @@ export class Roulette extends EventTarget {
     this._winningMarbles = [];
     this._winners = [];
     this._marbles = [];
+    this._winnerRenderer.reset();
   }
 
   public async startRecording() {
@@ -361,6 +394,7 @@ export class Roulette extends EventTarget {
     }
     this._winner = null;
     this._winningMarbles = [];
+    this._winnerRenderer.reset();
     this._camera.startFollowingMarbles();
 
     if (this._autoRecording) {

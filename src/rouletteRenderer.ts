@@ -22,6 +22,7 @@ export type RenderParameters = {
   winnerRankEnd?: number;
   winner: Marble | null;
   winningMarbles?: Marble[];
+  getMarbleImage?: (name: string) => CanvasImageSource | undefined;
   size: VectorLike;
   theme: ColorTheme;
 };
@@ -123,7 +124,7 @@ export class RouletteRenderer {
     await Promise.all(loadPromises);
   }
 
-  private getMarbleImage(name: string): CanvasImageSource | undefined {
+  public getMarbleImage(name: string): CanvasImageSource | undefined {
     return this._images[name];
   }
 
@@ -154,7 +155,6 @@ export class RouletteRenderer {
       obj.render(this.ctx, renderParameters, this._sceneCanvas.width, this._sceneCanvas.height)
     );
     renderParameters.particleManager.render(this.ctx);
-    this.renderWinner(renderParameters);
 
     this._displayCtx.drawImage(this._sceneCanvas, 0, 0, this._canvas.width, this._canvas.height);
   }
@@ -224,125 +224,5 @@ export class RouletteRenderer {
         this._theme
       );
     });
-  }
-
-  private renderWinner({ winner, winningMarbles, theme }: RenderParameters) {
-    const list = winningMarbles && winningMarbles.length > 0 ? winningMarbles : (winner ? [winner] : []);
-    if (list.length === 0) return;
-
-    this.ctx.save();
-    this.ctx.fillStyle = theme.winnerBackground;
-    const bannerWidth = this._sceneCanvas.width / 2;
-    const bannerX = this._sceneCanvas.width - bannerWidth;
-    const bannerY = this._sceneCanvas.height - winnerAreaHeight;
-    this.ctx.fillRect(bannerX, bannerY, bannerWidth, winnerAreaHeight);
-
-    if (list.length === 1) {
-      const winnerItem = list[0];
-      const marbleSize = 100;
-      const marbleCenterX = this._sceneCanvas.width - marbleSize / 2 - 20;
-      const marbleCenterY = this._sceneCanvas.height - winnerAreaHeight / 2;
-      const marbleImage = this.getMarbleImage(winnerItem.name);
-
-      if (marbleImage) {
-        this.ctx.drawImage(
-          marbleImage,
-          marbleCenterX - marbleSize / 2,
-          marbleCenterY - marbleSize / 2,
-          marbleSize,
-          marbleSize
-        );
-      } else {
-        this.ctx.beginPath();
-        this.ctx.arc(marbleCenterX, marbleCenterY, marbleSize / 2, 0, Math.PI * 2);
-        this.ctx.fillStyle = `hsl(${winnerItem.hue} 100% ${theme.marbleLightness})`;
-        this.ctx.fill();
-      }
-
-      this.ctx.fillStyle = theme.winnerText;
-      this.ctx.strokeStyle = theme.winnerOutline;
-
-      this.ctx.font = 'bold 48px sans-serif';
-      this.ctx.textAlign = 'right';
-      this.ctx.lineWidth = 4;
-      const textRightX = marbleCenterX - marbleSize / 2 - 20;
-      if (theme.winnerOutline) {
-        this.ctx.strokeText('Winner', textRightX, this._sceneCanvas.height - 120 + WINNER_TEXT_OFFSET);
-      }
-
-      this.ctx.fillText('Winner', textRightX, this._sceneCanvas.height - 120 + WINNER_TEXT_OFFSET);
-      this.ctx.font = 'bold 72px sans-serif';
-      this.ctx.fillStyle = `hsl(${winnerItem.hue} 100% ${theme.marbleLightness})`;
-      if (theme.winnerOutline) {
-        this.ctx.strokeText(winnerItem.name, textRightX, this._sceneCanvas.height - 55 + WINNER_TEXT_OFFSET);
-      }
-      this.ctx.fillText(winnerItem.name, textRightX, this._sceneCanvas.height - 55 + WINNER_TEXT_OFFSET);
-    } else {
-      // Multiple winners
-      this.ctx.fillStyle = theme.winnerText;
-      this.ctx.strokeStyle = theme.winnerOutline;
-      this.ctx.lineWidth = 3;
-
-      // Title
-      this.ctx.font = 'bold 30px sans-serif';
-      this.ctx.textAlign = 'left';
-      const title = `Winners (${list.length})`;
-      if (theme.winnerOutline) {
-        this.ctx.strokeText(title, bannerX + 25, bannerY + 40);
-      }
-      this.ctx.fillText(title, bannerX + 25, bannerY + 40);
-
-      // Render winners list
-      const maxDisplay = Math.min(list.length, 10);
-      const isTwoRows = list.length > 5;
-      const cols = isTwoRows ? Math.ceil(maxDisplay / 2) : maxDisplay;
-      const colWidth = (bannerWidth - 50) / cols;
-
-      for (let i = 0; i < maxDisplay; i++) {
-        const item = list[i];
-        const row = isTwoRows ? Math.floor(i / cols) : 0;
-        const col = isTwoRows ? i % cols : i;
-        const itemX = bannerX + 25 + col * colWidth;
-        const itemY = bannerY + (isTwoRows ? (row === 0 ? 80 : 130) : 100);
-
-        const marbleRadius = isTwoRows ? 15 : 22;
-        const centerX = itemX + marbleRadius;
-        const centerY = itemY;
-
-        const marbleImg = this.getMarbleImage(item.name);
-        if (marbleImg) {
-          this.ctx.drawImage(
-            marbleImg,
-            centerX - marbleRadius,
-            centerY - marbleRadius,
-            marbleRadius * 2,
-            marbleRadius * 2
-          );
-        } else {
-          this.ctx.beginPath();
-          this.ctx.arc(centerX, centerY, marbleRadius, 0, Math.PI * 2);
-          this.ctx.fillStyle = `hsl(${item.hue} 100% ${theme.marbleLightness})`;
-          this.ctx.fill();
-        }
-
-        this.ctx.textAlign = 'left';
-        this.ctx.fillStyle = theme.winnerText;
-        this.ctx.font = `bold ${isTwoRows ? 15 : 20}px sans-serif`;
-        const textX = centerX + marbleRadius + 8;
-        const nameText = item.name.length > 8 ? `${item.name.slice(0, 7)}…` : item.name;
-        if (theme.winnerOutline) {
-          this.ctx.strokeText(nameText, textX, centerY + (isTwoRows ? 5 : 7));
-        }
-        this.ctx.fillText(nameText, textX, centerY + (isTwoRows ? 5 : 7));
-      }
-
-      if (list.length > 10) {
-        this.ctx.font = 'italic 16px sans-serif';
-        this.ctx.fillStyle = theme.winnerText;
-        this.ctx.textAlign = 'right';
-        this.ctx.fillText(`+${list.length - 10} more`, this._sceneCanvas.width - 25, bannerY + 38);
-      }
-    }
-    this.ctx.restore();
   }
 }
